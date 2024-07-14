@@ -13,6 +13,8 @@ import bleach
 from bs4 import BeautifulSoup
 import json
 from slugify import slugify
+import secrets
+from flask import jsonify
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
@@ -87,6 +89,10 @@ class Page(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def generate_otp():
+    return ''.join(secrets.choice('0123456789') for _ in range(6))
+    
+
 # Helper functions
 def send_email(to, subject, template):
     msg = Message(
@@ -134,29 +140,40 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     if request.method == 'POST':
-        user = User.query.filter_by(email=request.form['email']).first()
-        if user and bcrypt.check_password_hash(user.password, request.form['password']):
-            otp = generate_otp()
-            send_email(user.email, 'Login OTP', f'Your OTP is: {otp}')
-            session['login_otp'] = otp
-            session['user_id'] = user.id
-            return redirect(url_for('verify_otp'))
-        flash('Invalid email or password')
+        email = request.form['email']
+        password = request.form['password']
+        otp = request.form.get('otp')
+
+        user = User.query.filter_by(email=email).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            if otp:
+                if otp == session.get('login_otp'):
+                    login_user(user)
+                    session.pop('login_otp', None)
+                    flash('Logged in successfully.')
+                    return redirect(url_for('index'))
+                else:
+                    flash('Invalid OTP. Please try again.')
+            else:
+                flash('Please enter the OTP sent to your email.')
+        else:
+            flash('Invalid email or password')
     return render_template('login.html')
 
-@app.route('/verify-otp', methods=['GET', 'POST'])
-def verify_otp():
-    if 'login_otp' not in session or 'user_id' not in session:
-        return redirect(url_for('login'))
-    if request.method == 'POST':
-        if request.form['otp'] == session['login_otp']:
-            user = User.query.get(session['user_id'])
-            login_user(user)
-            session.pop('login_otp')
-            session.pop('user_id')
-            return redirect(url_for('admin'))
-        flash('Invalid OTP')
-    return render_template('verify_otp.html')
+@app.route('/send-otp', methods=['POST'])
+def send_otp():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    user = User.query.filter_by(email=email).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        otp = generate_otp()
+        session['login_otp'] = otp
+        send_email(user.email, 'Login OTP', f'Your OTP is: {otp}')
+        return jsonify({'success': True, 'message': 'OTP sent successfully'})
+    else:
+        return jsonify({'success': False, 'message': 'Invalid email or password'})
 
 @app.route('/logout')
 @login_required
