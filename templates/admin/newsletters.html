@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Manage Newsletters - Your Blog{% endblock %}
+{% block content %}
+<h1>Manage Newsletters</h1>
+<a href="{{ url_for('new_newsletter') }}" class="btn btn-primary mb-3">Create New Newsletter</a>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Subject</th>
+            <th>Created At</th>
+            <th>Sent At</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for newsletter in newsletters %}
+        <tr>
+            <td>{{ newsletter.subject }}</td>
+            <td>{{ newsletter.created_at.strftime('%B %d, %Y') }}</td>
+            <td>{{ newsletter.sent_at.strftime('%B %d, %Y') if newsletter.sent_at else 'Not sent' }}</td>
+            <td>
+                <a href="{{ url_for('edit_newsletter', id=newsletter.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+                <form action="{{ url_for('delete_newsletter', id=newsletter.id) }}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this newsletter?')">Delete</button>
+                </form>
+                {% if not newsletter.sent_at %}
+                <form action="{{ url_for('send_newsletter', id=newsletter.id) }}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Are you sure you want to send this newsletter?')">Send</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
