@@ -65,6 +65,15 @@ class Comment(db.Model):
 class Newsletter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    confirmed = db.Column(db.Boolean, default=False)
+    token = db.Column(db.String(100), unique=True, nullable=True)
+
+class NewsletterIssue(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    subject = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    sent_at = db.Column(db.DateTime, nullable=True)
 
 class Page(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -219,29 +228,101 @@ def delete_post(post_id):
 @app.route('/newsletter/signup', methods=['POST'])
 def newsletter_signup():
     email = request.form['email']
-    if not Newsletter.query.filter_by(email=email).first():
-        newsletter = Newsletter(email=email)
-        db.session.add(newsletter)
+    subscriber = Newsletter.query.filter_by(email=email).first()
+    if subscriber is None:
+        token = serializer.dumps(email, salt='email-confirm-salt')
+        subscriber = Newsletter(email=email, token=token)
+        db.session.add(subscriber)
         db.session.commit()
-        flash('Thank you for signing up to our newsletter!')
+        confirm_url = url_for('confirm_email', token=token, _external=True)
+        html = render_template('email/confirm_email.html', confirm_url=confirm_url)
+        subject = "Please confirm your email"
+        send_email(email, subject, html)
+        flash('A confirmation email has been sent. Please check your inbox.')
+    elif not subscriber.confirmed:
+        flash('Please confirm your subscription. Check your email for the confirmation link.')
     else:
         flash('You are already subscribed to our newsletter.')
     return redirect(url_for('index'))
 
-@app.route('/admin/newsletter', methods=['GET', 'POST'])
+@app.route('/confirm/<token>')
+def confirm_email(token):
+    try:
+        email = serializer.loads(token, salt='email-confirm-salt', max_age=3600)
+    except:
+        flash('The confirmation link is invalid or has expired.')
+        return redirect(url_for('index'))
+    subscriber = Newsletter.query.filter_by(email=email).first_or_404()
+    if subscriber.confirmed:
+        flash('Account already confirmed.')
+    else:
+        subscriber.confirmed = True
+        subscriber.token = None
+        db.session.commit()
+        flash('You have confirmed your account. Thanks!')
+    return redirect(url_for('index'))
+
+@app.route('/admin/newsletter/new', methods=['GET', 'POST'])
 @login_required
-def send_newsletter():
+def new_newsletter():
     if not current_user.is_admin:
         abort(403)
     if request.method == 'POST':
         subject = request.form['subject']
         content = request.form['content']
-        subscribers = Newsletter.query.all()
-        for subscriber in subscribers:
-            send_email(subscriber.email, subject, content)
-        flash('Newsletter sent successfully')
-        return redirect(url_for('admin'))
-    return render_template('admin/send_newsletter.html')
+        newsletter = NewsletterIssue(subject=subject, content=content)
+        db.session.add(newsletter)
+        db.session.commit()
+        flash('Newsletter created successfully')
+        return redirect(url_for('admin_newsletters'))
+    return render_template('admin/new_newsletter.html')
+
+@app.route('/admin/newsletter/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_newsletter(id):
+    if not current_user.is_admin:
+        abort(403)
+    newsletter = NewsletterIssue.query.get_or_404(id)
+    if request.method == 'POST':
+        newsletter.subject = request.form['subject']
+        newsletter.content = request.form['content']
+        db.session.commit()
+        flash('Newsletter updated successfully')
+        return redirect(url_for('admin_newsletters'))
+    return render_template('admin/edit_newsletter.html', newsletter=newsletter)
+
+@app.route('/admin/newsletter/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_newsletter(id):
+    if not current_user.is_admin:
+        abort(403)
+    newsletter = NewsletterIssue.query.get_or_404(id)
+    db.session.delete(newsletter)
+    db.session.commit()
+    flash('Newsletter deleted successfully')
+    return redirect(url_for('admin_newsletters'))
+
+@app.route('/admin/newsletter/<int:id>/send', methods=['POST'])
+@login_required
+def send_newsletter(id):
+    if not current_user.is_admin:
+        abort(403)
+    newsletter = NewsletterIssue.query.get_or_404(id)
+    subscribers = Newsletter.query.filter_by(confirmed=True).all()
+    for subscriber in subscribers:
+        send_email(subscriber.email, newsletter.subject, newsletter.content)
+    newsletter.sent_at = datetime.utcnow()
+    db.session.commit()
+    flash('Newsletter sent successfully')
+    return redirect(url_for('admin_newsletters'))
+
+@app.route('/admin/newsletters')
+@login_required
+def admin_newsletters():
+    if not current_user.is_admin:
+        abort(403)
+    newsletters = NewsletterIssue.query.order_by(NewsletterIssue.created_at.desc()).all()
+    return render_template('admin/newsletters.html', newsletters=newsletters)
 
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
