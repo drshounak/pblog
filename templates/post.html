@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} - Your Blog{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ post.meta_description }}">
+{% endblock %}
+{% block content %}
+<article>
+    <h1>{{ post.title }}</h1>
+    <p class="text-muted">
+        Posted on {{ post.created_at.strftime('%B %d, %Y') }} by 
+        <a href="{{ url_for('author', user_id=post.author.id) }}">{{ post.author.username }}</a>
+    </p>
+    {% if post.feature_image %}
+    <img src="{{ url_for('static', filename='uploads/' + post.feature_image) }}" class="img-fluid mb-3" alt="{{ post.title }}">
+    {% endif %}
+    <div class="post-content">
+        {{ post.content | safe }}
+    </div>
+</article>
+
+<h3 class="mt-5">Comments</h3>
+{% for comment in post.comments %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="card-text">{{ comment.content }}</p>
+        <p class="card-text"><small class="text-muted">Posted by {{ comment.user.username }} on {{ comment.created_at.strftime('%B %d, %Y') }}</small></p>
+    </div>
+</div>
+{% endfor %}
+
+{% if current_user.is_authenticated %}
+<h4>Add a Comment</h4>
+<form action="{{ url_for('add_comment', post_id=post.id) }}" method="post">
+    <div class="form-group">
+        <textarea class="form-control" name="content" rows="3" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit Comment</button>
+</form>
+{% else %}
+<p>Please <a href="{{ url_for('login') }}">login</a> to leave a comment.</p>
+{% endif %}
+
+<script type="application/ld+json">
+    {{ generate_schema(post) | safe }}
+</script>
+{% endblock %}
