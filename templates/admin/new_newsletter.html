@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Create New Newsletter - Your Blog{% endblock %}
+{% block content %}
+<h1>Create New Newsletter</h1>
+<form action="{{ url_for('new_newsletter') }}" method="post">
+    <div class="form-group">
+        <label for="subject">Subject</label>
+        <input type="text" class="form-control" id="subject" name="subject" required>
+    </div>
+    <div class="form-group">
+        <label for="content">Content</label>
+        <textarea class="form-control" id="content" name="content" rows="10" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Create Newsletter</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.ckeditor.com/ckeditor5/27.1.0/classic/ckeditor.js"></script>
+<script>
+    ClassicEditor
+        .create(document.querySelector('#content'))
+        .catch(error => {
+            console.error(error);
+        });
+</script>
+{% endblock %}
