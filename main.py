@@ -318,5 +318,20 @@ def inject_schema():
         return json.dumps(schema)
     return dict(generate_schema=generate_schema)
 
+@app.cli.command("create-admin")
+def create_admin():
+    username = input("Enter admin username: ")
+    email = input("Enter admin email: ")
+    password = input("Enter admin password: ")
+    
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    admin = User(username=username, email=email, password=hashed_password, is_admin=True)
+    
+    db.session.add(admin)
+    db.session.commit()
+    print(f"Admin user {username} created successfully.")
+
+# Run this command with: flask create-admin
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)
