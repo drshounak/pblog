@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Login - Your Blog{% endblock %}
+{% block content %}
+<h1>Login</h1>
+<form action="{{ url_for('login') }}" method="post">
+    <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" class="form-control" id="email" name="email" required>
+    </div>
+    <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+    </div>
+    <div id="otp-section" style="display: none;">
+        <div class="form-group">
+            <label for="otp">One-Time Password</label>
+            <input type="text" class="form-control" id="otp" name="otp">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary" id="submit-btn">Login</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const form = document.querySelector('form');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const otpSection = document.getElementById('otp-section');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (otpSection.style.display === 'none') {
+            const response = await fetch('{{ url_for("send_otp") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: emailInput.value,
+                    password: passwordInput.value
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                otpSection.style.display = 'block';
+                submitBtn.textContent = 'Verify OTP';
+            } else {
+                alert(data.message);
+            }
+        } else {
+            form.submit();
+        }
+    });
+</script>
+{% endblock %}
