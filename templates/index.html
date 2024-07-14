@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Home - Your Blog{% endblock %}
+{% block content %}
+<h1>Welcome to Your Blog</h1>
+<div class="row">
+    {% for post in posts %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            {% if post.feature_image %}
+            <img src="{{ url_for('static', filename='uploads/' + post.feature_image) }}" class="card-img-top" alt="{{ post.title }}">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ post.title }}</h5>
+                <p class="card-text">{{ post.meta_description }}</p>
+                <a href="{{ url_for('post', slug=post.slug) }}" class="btn btn-primary">Read More</a>
+            </div>
+            <div class="card-footer text-muted">
+                Posted on {{ post.created_at.strftime('%B %d, %Y') }} by 
+                <a href="{{ url_for('author', user_id=post.author.id) }}">{{ post.author.username }}</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 class="mt-5">Subscribe to Our Newsletter</h2>
+<form action="{{ url_for('newsletter_signup') }}" method="post">
+    <div class="form-group">
+        <input type="email" class="form-control" name="email" placeholder="Enter your email" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Subscribe</button>
+</form>
+{% endblock %}
